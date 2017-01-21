@@ -66,6 +66,8 @@ class _Sandpile:
     def solve(self):
         start = time.perf_counter()
 
+        run_iter_krnl = self._program.run_iteration
+
         iterations = 0
         adaptive_iterations = 1
 
@@ -74,11 +76,11 @@ class _Sandpile:
                                         grid.shape,
                                         grid.dtype)
 
-        self._program.run_iteration(self._queue,
-                                    grid.shape,
-                                    None,
-                                    grid.base_data,
-                                    new_grid.base_data)
+        run_iter_krnl(self._queue,
+                      grid.shape,
+                      None,
+                      grid.base_data,
+                      new_grid.base_data)
         grid, new_grid = new_grid, grid
         iterations += 1
 
@@ -88,11 +90,11 @@ class _Sandpile:
                                         queue=self._queue)
 
             for _ in range(adaptive_iterations):
-                iteration_event = self._program.run_iteration(self._queue,
-                                                              grid.shape,
-                                                              None,
-                                                              grid.base_data,
-                                                              new_grid.base_data)
+                iteration_event = run_iter_krnl(self._queue,
+                                                grid.shape,
+                                                None,
+                                                grid.base_data,
+                                                new_grid.base_data)
                 grid, new_grid = new_grid, grid
                 iterations += 1
 
@@ -106,6 +108,8 @@ class _Sandpile:
     def gen_solve_frames(self, colors):
         img_creator = self._get_image_creator(colors)
 
+        run_iter_krnl = self._program.run_iteration
+
         yield img_creator.create_image(self.data)
 
         grid = self.data
@@ -114,11 +118,11 @@ class _Sandpile:
                                         grid.dtype)
 
         while True:
-            self._program.run_iteration(self._queue,
-                                        self.data.shape,
-                                        None,
-                                        grid.base_data,
-                                        new_grid.base_data)
+            run_iter_krnl(self._queue,
+                          self.data.shape,
+                          None,
+                          grid.base_data,
+                          new_grid.base_data)
             grid, new_grid = new_grid, grid
 
             if 0 == self._diff_krnl(grid,
@@ -181,6 +185,8 @@ class _ImageCreator:
 
         self._program = cl.Program(self._ctx, program).build(options=options)
 
+        self._to_image_krnl = self._program.to_image
+
         self._data = pyopencl.array.empty(self._queue,
                                           (image_width, image_height, 3),
                                           numpy.uint8)
@@ -190,10 +196,10 @@ class _ImageCreator:
 
         assert(self._shape == shape)
 
-        self._program.to_image(self._queue,
-                               shape,
-                               None,
-                               data.base_data,
-                               self._data.base_data)
+        self._to_image_krnl(self._queue,
+                            shape,
+                            None,
+                            data.base_data,
+                            self._data.base_data)
 
         return Image.fromarray(self._data.get(), 'RGB')
