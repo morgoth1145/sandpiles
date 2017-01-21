@@ -1,8 +1,11 @@
 import os
 
 from constants import COLORS
+import numpy
 from sandpile import Sandpiles, SymmetryMode
 from tee import Tee
+
+target_radius = 25
 
 os.environ['PYOPENCL_CTX'] = '0'
 
@@ -30,7 +33,7 @@ def get_radius(sandpile):
 def get_next_best_radius(new_radius):
     return ((new_radius+7)//8) * 8
 
-with Tee(os.path.join(output_dir, 'log.txt'), 'w+'):
+with Tee(os.path.join(output_dir, 'log.txt'), 'a+'):
     symmetry_modes = (
         SymmetryMode.SYMMETRY_ON_WITH_OVERLAP,
         SymmetryMode.SYMMETRY_ON_WITH_OVERLAP
@@ -42,7 +45,15 @@ with Tee(os.path.join(output_dir, 'log.txt'), 'w+'):
 
     save(output_dir, 0, sandpile)
 
-    for count in range(1, 31):
+    for count in range(1, target_radius+1):
+        if os.path.exists(os.path.join(output_dir, '%d.npz' % count)):
+            a = numpy.load(os.path.join(output_dir, '%d.npz' % count))['a']
+
+            sandpile = sandpiles.create_sandpile(shape=a.shape,
+                                                 symmetry_modes=symmetry_modes)
+            sandpile.data[:,:] = a
+            continue
+
         radius = get_radius(sandpile)
         new_radius = 3*radius//2
         new_radius = get_next_best_radius(new_radius)
@@ -50,6 +61,8 @@ with Tee(os.path.join(output_dir, 'log.txt'), 'w+'):
         offset = new_radius - sandpile.data.shape[0]
 
         if offset > 0:
+            print('Growing grid from %d to %d' % (sandpile.data.shape[0],
+                                                  new_radius))
             sandpile = sandpiles.reshape_sandpile(sandpile,
                                                   (new_radius, new_radius),
                                                   (offset, offset))
