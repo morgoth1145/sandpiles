@@ -6,12 +6,12 @@ from tee import Tee
 
 os.environ['PYOPENCL_CTX'] = '0'
 
-with open('queue.json') as f:
-    queue = json.load(f)
-
 sandpiles = Sandpiles()
 
-def run(output_dir, sequence_fn):
+def run(queue_filename, output_dir, sequence_fn):
+    with open(queue_filename) as f:
+        queue = json.load(f)
+
     os.makedirs(output_dir, exist_ok=True)
 
     with Tee(os.path.join(output_dir, 'log.txt'), 'w+'):

@@ -4,7 +4,7 @@ from constants import COLORS
 from runner import run
 
 output_dir = 'trickle'
-amnt = 2**20
+amnt = 2**30
 
 def sequence(sandpile, filename, symmetry_modes):
     size_path = os.path.join(output_dir, filename)
@@ -16,4 +16,4 @@ def sequence(sandpile, filename, symmetry_modes):
     i = sandpile.to_image(COLORS)
     i.save(size_path + '.png')
 
-run(output_dir, sequence)
+run('trickle_queue.json', output_dir, sequence)

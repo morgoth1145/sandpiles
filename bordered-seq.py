@@ -23,4 +23,4 @@ def sequence(sandpile, filename, symmetry_modes):
     i = sandpile.to_image(COLORS)
     i.save(size_path + '.png')
 
-run(output_dir, sequence)
+run('main_queue.json', output_dir, sequence)

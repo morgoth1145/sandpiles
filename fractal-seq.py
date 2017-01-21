@@ -42,4 +42,4 @@ def sequence(sandpile, filename, symmetry_modes):
 ##                       duration=1,
 ##                       optimize=True)
 
-run(output_dir, sequence)
+run('main_queue.json', output_dir, sequence)
