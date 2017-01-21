@@ -1,0 +1,4 @@
+*.png
+*.npz
+*.pyc
+log.txt
