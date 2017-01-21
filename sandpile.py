@@ -22,14 +22,6 @@ def isqrt(n):
         y = (x + n // x) // 2
     return x
 
-class Sandpiles:
-    def __init__(self):
-        self._ctx = cl.create_some_context()
-        self._queue = cl.CommandQueue(self._ctx)
-
-    def create_sandpile(self, shape, symmetry_modes):
-        return _Sandpile(self._ctx, self._queue, shape, symmetry_modes)
-
 def _gen_macros(ref_data, symmetry_modes):
     yield 'ELEM_TYPE=%s' % dtype_to_ctype(ref_data.dtype)
     yield 'GRID_WIDTH=%d' % ref_data.shape[0]
@@ -37,25 +29,90 @@ def _gen_macros(ref_data, symmetry_modes):
     yield 'X_SYMMETRY_MODE=%s' % symmetry_modes[0].name
     yield 'Y_SYMMETRY_MODE=%s' % symmetry_modes[1].name
 
+class Sandpiles:
+    def __init__(self):
+        self._ctx = cl.create_some_context()
+        self._queue = cl.CommandQueue(self._ctx)
+
+    def create_sandpile(self, shape, symmetry_modes):
+        data = pyopencl.array.zeros(self._queue,
+                                    shape,
+                                    numpy.uint8)
+
+        return _Sandpile(self._ctx, self._queue, data, symmetry_modes)
+
+    def scale_sandpile(self, sandpile, factor_x, factor_y):
+        with open('resize_data.cl') as f:
+            program = cl.Program(self._ctx, f.read())
+
+        new_shape = (sandpile.data.shape[0]*factor_x,
+                     sandpile.data.shape[1]*factor_y)
+
+        macros = list(_gen_macros(sandpile.data,
+                                  sandpile._symmetry_modes))
+        options = _macros_to_options(macros)
+        program.build(options=options)
+
+        dest = pyopencl.array.empty(self._queue,
+                                    new_shape,
+                                    numpy.uint8)
+
+        program.scale_grid(self._queue,
+                           sandpile.data.shape,
+                           None,
+                           sandpile.data.base_data,
+                           dest.base_data,
+                           numpy.uint32(factor_x),
+                           numpy.uint32(factor_y))
+
+        return _Sandpile(self._ctx, self._queue, dest, sandpile._symmetry_modes)
+
+    def reshape_sandpile(self, sandpile, new_shape, offsets):
+        assert(sandpile.data.shape[0]+offsets[0] <= new_shape[0])
+        assert(sandpile.data.shape[1]+offsets[1] <= new_shape[1])
+
+        with open('resize_data.cl') as f:
+            program = cl.Program(self._ctx, f.read())
+
+        macros = list(_gen_macros(sandpile.data,
+                                  sandpile._symmetry_modes))
+        options = _macros_to_options(macros)
+        program.build(options=options)
+
+        dest = pyopencl.array.zeros(self._queue,
+                                    new_shape,
+                                    numpy.uint8)
+
+        program.reshape_grid(self._queue,
+                             sandpile.data.shape,
+                             None,
+                             sandpile.data.base_data,
+                             dest.base_data,
+                             numpy.uint32(new_shape[0]),
+                             numpy.uint32(offsets[0]),
+                             numpy.uint32(new_shape[1]),
+                             numpy.uint32(offsets[1]))
+
+        return _Sandpile(self._ctx, self._queue, dest, sandpile._symmetry_modes)
+
 def _macros_to_options(macros):
     return ['-D' + m for m in macros]
 
 class _Sandpile:
-    def __init__(self, ctx, queue, shape, symmetry_modes):
+    def __init__(self, ctx, queue, data, symmetry_modes):
         self._ctx = ctx
         self._queue = queue
         self._symmetry_modes = symmetry_modes
 
-        self.data = pyopencl.array.zeros(self._queue,
-                                         shape,
-                                         numpy.uint8)
+        self.data = data
 
-        ctype = dtype_to_ctype(self.data.dtype)
+        ctype = dtype_to_ctype(data.dtype)
 
         with open('sandpile.cl') as f:
             program = cl.Program(self._ctx, f.read())
 
-        options = _macros_to_options(_gen_macros(self.data, symmetry_modes))
+        macros = _gen_macros(data, symmetry_modes)
+        options = _macros_to_options(macros)
         self._program = program.build(options=options)
 
         from pyopencl.reduction import ReductionKernel
