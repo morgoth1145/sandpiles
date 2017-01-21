@@ -1,0 +1,4 @@
+avconv -i "path/to/%d.png" -r 60 -c:v libx264 "path/to/movie.mp4"
+ffmpeg -i in.gif -c:v libx264 -pix_fmt yuv420p -movflags +faststart out.mp4
+
+ffmpeg -i split/%05d.png -c:v libx264 -crf 0 -preset veryslow test.mp4
