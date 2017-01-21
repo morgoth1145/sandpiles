@@ -31,7 +31,7 @@ class Sandpiles:
         return _Sandpile(self._ctx, self._queue, shape, symmetry_modes)
 
 def _gen_macros(ref_data, symmetry_modes):
-    yield 'INT_TYPE=%s' % dtype_to_ctype(ref_data.dtype)
+    yield 'ELEM_TYPE=%s' % dtype_to_ctype(ref_data.dtype)
     yield 'GRID_WIDTH=%d' % ref_data.shape[0]
     yield 'GRID_HEIGHT=%d' % ref_data.shape[1]
     yield 'X_SYMMETRY_MODE=%s' % symmetry_modes[0].name

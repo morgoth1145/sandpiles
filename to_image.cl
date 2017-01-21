@@ -4,17 +4,17 @@ __constant uchar red[COLOR_COUNT] = {RED_VALS};
 __constant uchar green[COLOR_COUNT] = {GREEN_VALS};
 __constant uchar blue[COLOR_COUNT] = {BLUE_VALS};
 
-inline void put_pixel_colors(__global uchar *image, const size_t image_idx, const INT_TYPE amnt) {
+inline void put_pixel_colors(__global uchar *image, const size_t image_idx, const ELEM_TYPE amnt) {
     image[3*image_idx+0] = red[amnt];
     image[3*image_idx+1] = green[amnt];
     image[3*image_idx+2] = blue[amnt];
 }
 
-__kernel void to_image(const __global INT_TYPE *grid, __global uchar *image) {
+__kernel void to_image(const __global ELEM_TYPE *grid, __global uchar *image) {
     const size_t x = get_global_id(0);
     const size_t y = get_global_id(1);
     
-    INT_TYPE amnt = grid[flat_idx(x, y, GRID_WIDTH, GRID_HEIGHT)];
+    ELEM_TYPE amnt = grid[flat_idx(x, y, GRID_WIDTH, GRID_HEIGHT)];
     amnt = (amnt < 0) ? 0 : amnt;
     amnt = (amnt > COLOR_COUNT-1) ? COLOR_COUNT-1 : amnt;
     
