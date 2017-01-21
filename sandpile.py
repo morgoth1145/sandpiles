@@ -105,34 +105,6 @@ class _Sandpile:
                 return iterations, time.perf_counter()-start
             adaptive_iterations = isqrt(diff_count)
 
-    def gen_solve_frames(self, colors):
-        img_creator = self._get_image_creator(colors)
-
-        run_iter_krnl = self._program.run_iteration
-
-        yield img_creator.create_image(self.data)
-
-        grid = self.data
-        new_grid = pyopencl.array.empty(self._queue,
-                                        grid.shape,
-                                        grid.dtype)
-
-        while True:
-            run_iter_krnl(self._queue,
-                          self.data.shape,
-                          None,
-                          grid.base_data,
-                          new_grid.base_data)
-            grid, new_grid = new_grid, grid
-
-            if 0 == self._diff_krnl(grid,
-                                    new_grid,
-                                    queue=self._queue).get():
-                self.data = grid
-                return
-
-            yield img_creator.create_image(grid)
-
     def to_image(self, colors):
         return self._get_image_creator(colors).create_image(self.data)
 
