@@ -4,6 +4,7 @@ import time
 
 import numpy
 import pyopencl as cl
+from pyopencl.tools import dtype_to_ctype
 from PIL import Image
 
 import pyopencl.array
@@ -29,10 +30,10 @@ class Sandpiles:
     def create_sandpile(self, shape, symmetry_modes):
         return _Sandpile(self._ctx, self._queue, shape, symmetry_modes)
 
-def _gen_macros(shape, symmetry_modes):
-    yield 'INT_TYPE=unsigned int'
-    yield 'GRID_WIDTH=%d' % shape[0]
-    yield 'GRID_HEIGHT=%d' % shape[1]
+def _gen_macros(ref_data, symmetry_modes):
+    yield 'INT_TYPE=%s' % dtype_to_ctype(ref_data.dtype)
+    yield 'GRID_WIDTH=%d' % ref_data.shape[0]
+    yield 'GRID_HEIGHT=%d' % ref_data.shape[1]
     yield 'X_SYMMETRY_MODE=%s' % symmetry_modes[0].name
     yield 'Y_SYMMETRY_MODE=%s' % symmetry_modes[1].name
 
@@ -45,10 +46,16 @@ class _Sandpile:
         self._queue = queue
         self._symmetry_modes = symmetry_modes
 
+        self.data = pyopencl.array.zeros(self._queue,
+                                         shape,
+                                         numpy.uint8)
+
+        ctype = dtype_to_ctype(self.data.dtype)
+
         with open('sandpile.cl') as f:
             program = cl.Program(self._ctx, f.read())
 
-        options = _macros_to_options(_gen_macros(shape, symmetry_modes))
+        options = _macros_to_options(_gen_macros(self.data, symmetry_modes))
         self._program = program.build(options=options)
 
         from pyopencl.reduction import ReductionKernel
@@ -57,11 +64,8 @@ class _Sandpile:
                                           neutral='0',
                                           reduce_expr='a+b',
                                           map_expr='grid[i]!=new_grid[i]',
-                                          arguments='__global unsigned int *grid, __global unsigned int *new_grid')
-
-        self.data = pyopencl.array.zeros(self._queue,
-                                         shape,
-                                         numpy.uint32)
+                                          arguments='const __global %s *grid, const __global %s *new_grid' % (ctype,
+                                                                                                              ctype))
 
     def solve(self):
         start = time.perf_counter()
@@ -115,29 +119,29 @@ class _Sandpile:
     def _get_image_creator(self, colors):
         return _ImageCreator(self._ctx,
                              self._queue,
-                             self.data.shape,
+                             self.data,
                              self._symmetry_modes,
                              colors)
 
 class _ImageCreator:
-    def __init__(self, ctx, queue, shape, symmetry_modes, colors):
+    def __init__(self, ctx, queue, ref_data, symmetry_modes, colors):
         self._ctx = ctx
         self._queue = queue
-        self._shape = shape
+        self._shape = ref_data.shape
 
         if symmetry_modes[0] == SymmetryMode.SYMMETRY_OFF:
-            image_width = shape[0]
+            image_width = ref_data.shape[0]
         elif symmetry_modes[0] == SymmetryMode.SYMMETRY_ON:
-            image_width = 2*shape[0]
+            image_width = 2*ref_data.shape[0]
         elif symmetry_modes[0] == SymmetryMode.SYMMETRY_ON_WITH_OVERLAP:
-            image_width = 2*shape[0]-1
+            image_width = 2*ref_data.shape[0]-1
 
         if symmetry_modes[1] == SymmetryMode.SYMMETRY_OFF:
-            image_height = shape[1]
+            image_height = ref_data.shape[1]
         elif symmetry_modes[1] == SymmetryMode.SYMMETRY_ON:
-            image_height = 2*shape[1]
+            image_height = 2*ref_data.shape[1]
         elif symmetry_modes[1] == SymmetryMode.SYMMETRY_ON_WITH_OVERLAP:
-            image_height = 2*shape[1]-1
+            image_height = 2*ref_data.shape[1]-1
 
         red = [str(c[0]) for c in colors]
         green = [str(c[1]) for c in colors]
@@ -146,7 +150,7 @@ class _ImageCreator:
         with open('to_image.cl') as f:
             program = f.read()
 
-        macros = list(_gen_macros(shape, symmetry_modes))
+        macros = list(_gen_macros(ref_data, symmetry_modes))
         macros.append('COLOR_COUNT=%d' % len(colors))
         macros.append('RED_VALS=%s' % ', '.join(red))
         macros.append('GREEN_VALS=%s' % ', '.join(green))
