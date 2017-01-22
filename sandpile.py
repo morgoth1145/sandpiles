@@ -41,6 +41,27 @@ class Sandpiles:
 
         return _Sandpile(self._ctx, self._queue, data, symmetry_modes)
 
+    def try_load_sandpile(self, filename):
+        if not filename.endswith('.npz'):
+            filename += '.npz'
+
+        if not os.path.exists(filename):
+            return None
+
+        n = numpy.load(filename)
+
+        data = pyopencl.array.to_device(self._queue,
+                                        n['array'])
+        symmetry_modes = (
+            SymmetryMode(n['symmetry_modes'][0]),
+            SymmetryMode(n['symmetry_modes'][1])
+        )
+
+        return _Sandpile(self._ctx,
+                         self._queue,
+                         data,
+                         symmetry_modes)
+
     def scale_sandpile(self, sandpile, factor_x, factor_y):
         with open('resize_data.cl') as f:
             program = cl.Program(self._ctx, f.read())
@@ -49,7 +70,7 @@ class Sandpiles:
                      sandpile.data.shape[1]*factor_y)
 
         macros = list(_gen_macros(sandpile.data,
-                                  sandpile._symmetry_modes))
+                                  sandpile.symmetry_modes))
         options = _macros_to_options(macros)
         program.build(options=options)
 
@@ -65,7 +86,7 @@ class Sandpiles:
                            numpy.uint32(factor_x),
                            numpy.uint32(factor_y))
 
-        return _Sandpile(self._ctx, self._queue, dest, sandpile._symmetry_modes)
+        return _Sandpile(self._ctx, self._queue, dest, sandpile.symmetry_modes)
 
     def reshape_sandpile(self, sandpile, new_shape, offsets):
         assert(sandpile.data.shape[0]+offsets[0] <= new_shape[0])
@@ -75,7 +96,7 @@ class Sandpiles:
             program = cl.Program(self._ctx, f.read())
 
         macros = list(_gen_macros(sandpile.data,
-                                  sandpile._symmetry_modes))
+                                  sandpile.symmetry_modes))
         options = _macros_to_options(macros)
         program.build(options=options)
 
@@ -93,7 +114,7 @@ class Sandpiles:
                              numpy.uint32(new_shape[1]),
                              numpy.uint32(offsets[1]))
 
-        return _Sandpile(self._ctx, self._queue, dest, sandpile._symmetry_modes)
+        return _Sandpile(self._ctx, self._queue, dest, sandpile.symmetry_modes)
 
 def _macros_to_options(macros):
     return ['-D' + m for m in macros]
@@ -102,7 +123,7 @@ class _Sandpile:
     def __init__(self, ctx, queue, data, symmetry_modes):
         self._ctx = ctx
         self._queue = queue
-        self._symmetry_modes = symmetry_modes
+        self.symmetry_modes = symmetry_modes
 
         self.data = data
 
@@ -169,15 +190,20 @@ class _Sandpile:
     def to_image(self, colors):
         return self._get_image_creator(colors).create_image(self.data)
 
-    def save_array(self, filename):
+    def save(self, filename):
+        symmetry_modes = (
+            self.symmetry_modes[0].name,
+            self.symmetry_modes[1].name
+        )
         numpy.savez_compressed(filename,
-                               a=self.data.get())
+                               a=self.data.get(),
+                               symmetry_modes=symmetry_modes)
 
     def _get_image_creator(self, colors):
         return _ImageCreator(self._ctx,
                              self._queue,
                              self.data,
-                             self._symmetry_modes,
+                             self.symmetry_modes,
                              colors)
 
 class _ImageCreator:

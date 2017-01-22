@@ -12,7 +12,7 @@ def sequence(sandpile, filename, symmetry_modes):
     sandpile.data[-1,-1] = amnt
     print(sandpile.solve())
 
-    sandpile.save_array(size_path)
+    sandpile.save(size_path)
     i = sandpile.to_image(COLORS)
     i.save(size_path + '.png')
 

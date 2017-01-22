@@ -1,4 +1,5 @@
-bordered-seq.py
-fractal-seq.py
-trickle-seq.py
+rem bordered-seq.py
+rem fractal-seq.py
+rem trickle-seq.py
+infinite-sandpile.py
 rem shutdown /h

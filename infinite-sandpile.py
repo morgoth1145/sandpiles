@@ -1,7 +1,6 @@
 import os
 
 from constants import COLORS
-import numpy
 from sandpile import Sandpiles, SymmetryMode
 from tee import Tee
 
@@ -16,7 +15,7 @@ sandpiles = Sandpiles()
 os.makedirs(output_dir, exist_ok=True)
 
 def save(directory, num, sandpile):
-    sandpile.save_array(os.path.join(directory, str(num)))
+    sandpile.save(os.path.join(directory, str(num)))
 
     i = sandpile.to_image(COLORS)
     i.save(os.path.join(directory, '%d.png' % num))
@@ -46,12 +45,9 @@ with Tee(os.path.join(output_dir, 'log.txt'), 'a+'):
     save(output_dir, 0, sandpile)
 
     for count in range(1, target_radius+1):
-        if os.path.exists(os.path.join(output_dir, '%d.npz' % count)):
-            a = numpy.load(os.path.join(output_dir, '%d.npz' % count))['a']
-
-            sandpile = sandpiles.create_sandpile(shape=a.shape,
-                                                 symmetry_modes=symmetry_modes)
-            sandpile.data[:,:] = a
+        saved_sandpile = sandpiles.try_load_sandpile(os.path.join(output_dir, str(count)))
+        if saved_sandpile is not None:
+            sandpile = saved_sandpile
             continue
 
         radius = get_radius(sandpile)
